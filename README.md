@@ -31,10 +31,20 @@ HTTP or queue adapters should wrap this domain layer later. Those adapters shoul
 - Map `ContextServiceError` to the shared platform error envelope.
 - Keep raw content out of logs and long-term persistence.
 
-## Development
+## Testing And Coverage
 
-Run tests without installing dependencies:
+Run the unit tests with either command:
 
 ```sh
 node --test
+npm test
 ```
+
+View the built-in coverage report in the terminal:
+
+```sh
+node --experimental-test-coverage --test
+npm run coverage
+```
+
+The coverage command uses Node's built-in test runner and prints a text report. If later tooling writes HTML, LCOV, TAP, JUnit, or build output, those generated paths are ignored by `.gitignore`.
