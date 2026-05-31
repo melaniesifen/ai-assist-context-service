@@ -5,4 +5,6 @@ export * from "./consent.js";
 export * from "./hash.js";
 export * from "./limits.js";
 export * from "./provenance.js";
+export * from "./redaction.js";
+export * from "./logging.js";
 export * from "./context.js";

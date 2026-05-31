@@ -4,6 +4,7 @@ import { applyContextByteLimit } from "./limits.js";
 import { validateContextMode } from "./modes.js";
 import { hashContent } from "./hash.js";
 import { classifyContextSource, normalizeProvenance } from "./provenance.js";
+import { applyContextRedaction } from "./redaction.js";
 import { assertNonEmptyString, assertPlainObject } from "./validation.js";
 
 export function normalizeContext(input, options = {}) {
@@ -22,7 +23,11 @@ export function normalizeContext(input, options = {}) {
   assertNonEmptyString(input.resourceRef.resourceId, "input.resourceRef.resourceId");
   assertNonEmptyString(input.content, "input.content");
 
-  const limitResult = applyContextByteLimit(input.content, {
+  const redactionResult = applyContextRedaction(input.content, {
+    policy: options.redactionPolicy,
+    rules: options.redactionRules
+  });
+  const limitResult = applyContextByteLimit(redactionResult.content, {
     maxBytes: options.maxBytes,
     oversizedBehavior: options.oversizedBehavior ?? "truncate",
     rejectionReason: "context content exceeds configured safe limit"
@@ -52,6 +57,7 @@ export function normalizeContext(input, options = {}) {
     resourceRevision: input.resourceRevision ?? null,
     metadata: {
       ...(input.metadata ?? {}),
+      redaction: redactionResult.metadata,
       contentLimit: limitResult.metadata
     },
     provenance,

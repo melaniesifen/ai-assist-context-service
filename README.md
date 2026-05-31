@@ -14,12 +14,16 @@ This package owns pure context-domain behavior:
 - Classify context as client-supplied or connector-verified.
 - Enforce that write-back requires connector-verified revision plus anchor or range metadata.
 - Truncate oversized context when safe, or reject it with `CONTEXT_TOO_LARGE`.
+- Optionally apply deterministic MVP redaction before hashing and byte-limit checks.
+- Build metadata-only log records that exclude raw context content and provenance details.
 
 The service does not own product authentication, connector API calls, model calls, prompt assembly, proposed action persistence, or document write-back.
 
 ## Privacy Rules
 
 The domain helpers return raw `content` to orchestration, but the package does not log content. Callers should log only metadata such as request IDs, context mode, provider, content byte counts, truncation state, and typed error codes.
+
+Use `buildContextLogMetadata` when an adapter needs context observability fields. It intentionally omits `content` and full provenance. Use `redactionPolicy: REDACTION_POLICIES.MVP_DEFAULT` with `normalizeContext` when MVP deterministic redaction is selected for a context path.
 
 ## Future API Adapters
 

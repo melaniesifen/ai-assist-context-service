@@ -66,7 +66,8 @@ export function assertConnectorVerifiedForWriteBack(context) {
           sourceType: context?.sourceType,
           hasResourceRevision: Boolean(context?.resourceRevision),
           hasAnchorOrRange: Boolean(context?.anchors?.selectionAnchor || context?.anchors?.targetRange),
-          truncated: context?.metadata?.contentLimit?.truncated === true
+          truncated: context?.metadata?.contentLimit?.truncated === true,
+          redacted: context?.metadata?.redaction?.redacted === true
         }
       }
     );
@@ -79,9 +80,11 @@ export function isConnectorVerifiedWriteBackEligible(context) {
     context?.connectorVerified === true &&
     context?.trustLevel === TRUST_LEVELS.CONNECTOR_VERIFIED &&
     typeof context?.contentHash === "string" &&
+    context.contentHash.trim().length > 0 &&
     Boolean(context?.resourceRevision) &&
     Boolean(context?.anchors?.selectionAnchor || context?.anchors?.targetRange) &&
-    context?.metadata?.contentLimit?.truncated !== true
+    context?.metadata?.contentLimit?.truncated !== true &&
+    context?.metadata?.redaction?.redacted !== true
   );
 }
 

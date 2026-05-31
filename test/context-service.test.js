@@ -4,7 +4,9 @@ import {
   CONSENT_STATUSES,
   CONTEXT_MODES,
   ERROR_CODES,
+  REDACTION_POLICIES,
   assertConnectorVerifiedForWriteBack,
+  buildContextLogMetadata,
   hashContent,
   isConnectorVerifiedWriteBackEligible,
   normalizeContext,
@@ -212,6 +214,82 @@ test("normalizeContext marks connector-verified context with provenance and writ
   assert.equal(assertConnectorVerifiedForWriteBack(context), true);
 });
 
+test("write-back eligibility requires a non-empty content hash", () => {
+  const context = normalizeContext(contextInput(), { now: NOW });
+
+  assert.equal(isConnectorVerifiedWriteBackEligible({ ...context, contentHash: "   " }), false);
+  assert.throws(() => assertConnectorVerifiedForWriteBack({ ...context, contentHash: "" }), {
+    code: ERROR_CODES.CONNECTOR_VERIFICATION_REQUIRED
+  });
+});
+
+test("normalizeContext can apply deterministic MVP redaction before hashing and byte limits", () => {
+  const context = normalizeContext(
+    contextInput({
+      content: "Email owner@example.com with Bearer abcdefghijklmnopqrstuvwxyz123456"
+    }),
+    {
+      now: NOW,
+      redactionPolicy: REDACTION_POLICIES.MVP_DEFAULT
+    }
+  );
+
+  assert.equal(
+    context.content,
+    "Email <redacted:email_address> with Bearer <redacted:token>"
+  );
+  assert.equal(context.contentHash, hashContent(context.content));
+  assert.deepEqual(context.metadata.redaction, {
+    policy: REDACTION_POLICIES.MVP_DEFAULT,
+    redacted: true,
+    rulesApplied: ["email_address", "bearer_token"]
+  });
+  assert.equal(isConnectorVerifiedWriteBackEligible(context), false);
+  assert.throws(() => assertConnectorVerifiedForWriteBack(context), {
+    code: ERROR_CODES.CONNECTOR_VERIFICATION_REQUIRED,
+    details: {
+      contextId: "ctx-1",
+      trustLevel: "connector_verified",
+      sourceType: "connector_resource_excerpt",
+      hasResourceRevision: true,
+      hasAnchorOrRange: true,
+      truncated: false,
+      redacted: true
+    }
+  });
+});
+
+test("MVP redaction matches bearer token schemes case-insensitively", () => {
+  const context = normalizeContext(
+    contextInput({
+      content: "authorization: bEaReR abcdefghijklmnopqrstuvwxyz123456"
+    }),
+    {
+      now: NOW,
+      redactionPolicy: REDACTION_POLICIES.MVP_DEFAULT
+    }
+  );
+
+  assert.equal(context.content, "authorization: Bearer <redacted:token>");
+  assert.deepEqual(context.metadata.redaction.rulesApplied, ["bearer_token"]);
+});
+
+test("buildContextLogMetadata omits raw content and keeps only safe context metadata", () => {
+  const context = normalizeContext(contextInput({ content: "private document content" }), { now: NOW });
+  const metadata = buildContextLogMetadata(context);
+
+  assert.equal(Object.hasOwn(metadata, "content"), false);
+  assert.equal(Object.hasOwn(metadata, "provenance"), false);
+  assert.deepEqual(metadata.contentBytes, {
+    originalBytes: 24,
+    returnedBytes: 24,
+    maxBytes: 65536,
+    truncated: false
+  });
+  assert.equal(metadata.contentHash, hashContent("private document content"));
+  assert.equal(metadata.connectorVerified, true);
+});
+
 test("normalizeContext truncates oversized content when safe", () => {
   const context = normalizeContext(contextInput({ content: "abcdef" }), {
     now: NOW,
@@ -231,7 +309,8 @@ test("normalizeContext truncates oversized content when safe", () => {
       sourceType: "connector_resource_excerpt",
       hasResourceRevision: true,
       hasAnchorOrRange: true,
-      truncated: true
+      truncated: true,
+      redacted: false
     }
   });
 });

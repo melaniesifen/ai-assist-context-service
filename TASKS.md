@@ -31,8 +31,8 @@ Canonical cross-repo tasks live in `../ai-assist-architecture/implementation-tas
 - [ ] CTX-006: expand failure coverage for stale resource refs, revoked provider tokens, connector API failures, and user-facing recovery codes.
 - [ ] CTX-006 / E2E-005: add operational validation for missing consent, expired/revoked grants, stale resource refs, oversized context, and adapter dependency failures.
 - [ ] SAFE-003: document and test that context content remains transient unless stored by the proposed-actions path.
-- [ ] SAFE-004: add redaction hook interface and deterministic MVP redaction if selected, with no raw redaction output in logs.
-- [ ] OPS-003: add metadata-only logging adapter rules for future HTTP/internal adapters.
+- [x] SAFE-004: add redaction hook interface and deterministic MVP redaction if selected, with no raw redaction output in logs.
+- [x] OPS-003: add metadata-only logging adapter rules for future HTTP/internal adapters.
 - [ ] OPS-004 / INFRA-004: add deployment pipeline checks for context service config, consent store access, metadata-only logs, metrics, and dependency health.
 - [ ] Quality: raise line coverage to at least 95% after adapter boundaries are added.
 
