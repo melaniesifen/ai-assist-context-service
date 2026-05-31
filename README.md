@@ -1,6 +1,6 @@
 # AI Assist Context Service
 
-Dependency-light Node.js ESM bootstrap for the context service domain layer.
+Stdlib-only Python package for the context service domain layer.
 
 ## MVP Boundary
 
@@ -23,7 +23,29 @@ The service does not own product authentication, connector API calls, model call
 
 The domain helpers return raw `content` to orchestration, but the package does not log content. Callers should log only metadata such as request IDs, context mode, provider, content byte counts, truncation state, and typed error codes.
 
-Use `buildContextLogMetadata` when an adapter needs context observability fields. It intentionally omits `content` and full provenance. Use `redactionPolicy: REDACTION_POLICIES.MVP_DEFAULT` with `normalizeContext` when MVP deterministic redaction is selected for a context path.
+Use `build_context_log_metadata` when an adapter needs context observability fields. It intentionally omits `content` and full provenance. Use `{"redactionPolicy": REDACTION_POLICIES["MVP_DEFAULT"]}` with `normalize_context` when MVP deterministic redaction is selected for a context path.
+
+```python
+from ai_assist_context_service import (
+    REDACTION_POLICIES,
+    build_context_log_metadata,
+    normalize_context,
+)
+
+context = normalize_context(
+    input_value,
+    {"redactionPolicy": REDACTION_POLICIES["MVP_DEFAULT"]},
+)
+metadata = build_context_log_metadata(context)
+```
+
+## Runtime And Dependencies
+
+The current package uses Python standard library modules only. No `pyproject.toml`
+or requirements file is committed because there are no third-party runtime or
+test dependencies yet. Add repo-local dependency/tooling manifests before adding
+libraries, package managers, formatters, coverage tools, HTTP frameworks, or
+deployment tooling.
 
 ## Future API Adapters
 
@@ -39,20 +61,14 @@ HTTP or queue adapters should wrap this domain layer later. Those adapters shoul
 
 Implementation tasks are tracked in [TASKS.md](TASKS.md). Update the checkboxes there in the same change that implements or verifies a task.
 
-## Testing And Coverage
+## Testing
 
-Run the unit tests with either command:
-
-```sh
-node --test
-npm test
-```
-
-View the built-in coverage report in the terminal:
+Run the unit tests with the stdlib test runner:
 
 ```sh
-node --experimental-test-coverage --test
-npm run coverage
+python3 -m unittest
 ```
 
-The coverage command uses Node's built-in test runner and prints a text report. If later tooling writes HTML, LCOV, TAP, JUnit, or build output, those generated paths are ignored by `.gitignore`.
+Coverage tooling is deferred until a repo-local Python tooling decision is made.
+If later tooling writes virtualenvs, caches, HTML, LCOV, JUnit, build, or
+distribution output, those generated paths are ignored by `.gitignore`.

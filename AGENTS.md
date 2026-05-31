@@ -2,11 +2,12 @@
 
 ## Repo Purpose
 
-`ai-assist-context-service` owns context mode validation, `ContextConsentGrants`, normalized context shape, provenance, trust classification, truncation, and redaction hooks.
+`ai-assist-context-service` owns context mode validation, `ContextConsentGrants`, normalized context shape, provenance, trust classification, truncation, and redaction hooks. The current implementation is a dependency-free Python package using only the standard library.
 
 ## Agent Instructions
 
 - Read `README.md`, `ai-assist-platform-context.md`, and `../ai-assist-architecture/lld-context-connectors.md` before changing behavior.
+- Do not add undeclared Python dependencies. If a future slice needs libraries or tooling, add repo-local manifests such as `pyproject.toml` or requirements files and document install/test commands.
 - MVP supports `SELECTION` and `ACTIVE_RESOURCE`; `VISIBLE_REGION`, `WORKSPACE`, and `SCREEN` are future modes.
 - Enforce consent before connector calls for modes that require grants.
 - Mark context as `client_supplied` or `connector_verified`. Client-supplied content may inform the model but cannot authorize write-back.
@@ -15,8 +16,8 @@
 
 ## Commands
 
-- Run tests with `node --test`.
-- `npm` may not be available in this environment; prefer the direct Node command.
+- Run tests with `python3 -m unittest`.
+- No package install step is required for the current stdlib-only package.
 
 ## Review Notes
 
