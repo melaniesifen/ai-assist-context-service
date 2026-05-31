@@ -4,7 +4,7 @@ Update this file as implementation progresses. Check off completed tasks in the 
 
 Canonical cross-repo tasks live in `../ai-assist-architecture/implementation-task-breakdown.md`. This repo owns the context-service portions of `CTX-*`, `SAFE-*`, `OPS-*`, and `REPO-001` items, grounded by `../ai-assist-architecture/lld-context-connectors.md`.
 
-Migration gate: The approved direction is to migrate this repo from the temporary JavaScript ESM bootstrap to Python. Do not continue broad new feature work until that migration is completed or explicitly deferred.
+Migration status: The repo has been migrated from the temporary JavaScript ESM bootstrap to Python for the current local package scope. Broad new feature work may continue in Python after the parent migration checkpoint.
 
 ## Completed Bootstrap
 
