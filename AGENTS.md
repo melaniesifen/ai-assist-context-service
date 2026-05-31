@@ -21,3 +21,16 @@
 ## Review Notes
 
 Before committing, review whether any new path lets unverified client content become mutation authority or bypasses mode/consent enforcement.
+
+## Commit Messages
+
+All commits in this repo must use this format:
+
+```text
+docs/feat/fix/(or another appropriate type): title of change
+
+problem: <description of problem>
+solution: <description of solution>
+impact: <impact of this change>
+reference: <reference to this change in the docs if applicable>
+```
