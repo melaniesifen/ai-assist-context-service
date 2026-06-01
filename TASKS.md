@@ -18,10 +18,12 @@ Migration status: The repo has been migrated from the temporary JavaScript ESM b
 - [x] CTX-006 repo-local: cover unsupported mode, missing consent, expired/revoked grant, oversized context, and unsafe write-back eligibility with unit tests.
 - [x] OPS-003 bootstrap: keep this domain package free of raw-content logging paths.
 - [x] Repo hygiene: document tests and coverage commands, and ignore prompts, feedback, coverage output, dependencies, and build artifacts.
+- [x] Repo hygiene: standardize Python package layout to `src/ai_assist_context_service/` with tests in `tests/`.
+- [x] Repo hygiene: add `pyproject.toml` package discovery for the `src/` layout.
 
 ## Pending Architecture Tasks
 
-- [ ] REPO-001: decide final language/runtime, framework, package manager, package layout, migration cost, deployment target, and test strategy for this repo.
+- [x] REPO-001: decide final language/runtime, framework, package manager, package layout, migration cost, deployment target, and test strategy for this repo.
 - [x] REPO-002: migrate the context-service bootstrap to a Python package layout with equivalent behavior and tests before broad new feature work continues.
 - [ ] CTX-001: align mode constants and unsupported-mode error shape with versioned shared contracts after `ai-assist-contracts` publishes them.
 - [ ] CTX-002: add a persistence adapter for `ContextConsentGrants` with tenant-aware lookup, revocation, expiry, and resource/workspace boundary queries.

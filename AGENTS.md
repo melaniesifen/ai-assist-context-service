@@ -16,7 +16,8 @@
 
 ## Commands
 
-- Run tests with `python3 -m unittest`.
+- Run tests with `PYTHONPATH=src python3 -m unittest discover -s tests`.
+- Run compile checks with `PYTHONPATH=src python3 -m compileall src tests`.
 - No package install step is required for the current stdlib-only package.
 
 ## Review Notes

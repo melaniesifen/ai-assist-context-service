@@ -41,11 +41,12 @@ metadata = build_context_log_metadata(context)
 
 ## Runtime And Dependencies
 
-The current package uses Python standard library modules only. No `pyproject.toml`
-or requirements file is committed because there are no third-party runtime or
-test dependencies yet. Add repo-local dependency/tooling manifests before adding
-libraries, package managers, formatters, coverage tools, HTTP frameworks, or
-deployment tooling.
+The current package uses Python standard library modules only. Runtime code
+lives under `src/ai_assist_context_service/`, with tests under `tests/`.
+`pyproject.toml` documents the package name and `src/` package discovery without
+adding runtime dependencies. Add repo-local dependency/tooling manifests before
+adding libraries, package managers, formatters, coverage tools, HTTP frameworks,
+or deployment tooling.
 
 ## Future API Adapters
 
@@ -66,7 +67,13 @@ Implementation tasks are tracked in [TASKS.md](TASKS.md). Update the checkboxes 
 Run the unit tests with the stdlib test runner:
 
 ```sh
-python3 -m unittest
+PYTHONPATH=src python3 -m unittest discover -s tests
+```
+
+Compile the package and tests with:
+
+```sh
+PYTHONPATH=src python3 -m compileall src tests
 ```
 
 Coverage tooling is deferred until a repo-local Python tooling decision is made.
