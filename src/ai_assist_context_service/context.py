@@ -44,6 +44,7 @@ def normalize_context(input_value, options=None):
     )
     classification = classify_context_source(input_value)
     anchors = input_value.get("anchors") or {}
+    limit_metadata = limit_result["metadata"]
     provenance = normalize_provenance(
         {
             **input_value,
@@ -70,8 +71,18 @@ def normalize_context(input_value, options=None):
         "resourceRevision": input_value.get("resourceRevision"),
         "metadata": {
             **(input_value.get("metadata") or {}),
+            "truncated": limit_metadata["truncated"],
+            "contentLength": limit_metadata["returnedBytes"],
+            **(
+                {
+                    "originalContentLength": limit_metadata["originalBytes"],
+                    "truncationReason": "MAX_CONTEXT_BYTES",
+                }
+                if limit_metadata["truncated"]
+                else {}
+            ),
             "redaction": redaction_result["metadata"],
-            "contentLimit": limit_result["metadata"],
+            "contentLimit": limit_metadata,
         },
         "provenance": provenance,
         "capturedAt": captured_at,

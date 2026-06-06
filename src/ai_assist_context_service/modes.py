@@ -13,9 +13,11 @@ def validate_context_mode(context_mode):
 
     if context_mode not in MVP_CONTEXT_MODES:
         raise context_error(
-            ERROR_CODES["CONTEXT_MODE_UNSUPPORTED"],
-            "contextMode is not supported in MVP",
-            http_status=422,
+            ERROR_CODES["UNSUPPORTED_CONTEXT_MODE"],
+            f"{context_mode} is not supported for the MVP read path.",
+            http_status=400,
+            category="VALIDATION",
+            target="contextMode",
             details={"contextMode": context_mode, "supportedModes": MVP_CONTEXT_MODES},
         )
 

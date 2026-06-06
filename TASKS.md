@@ -25,9 +25,9 @@ Migration status: The repo has been migrated from the temporary JavaScript ESM b
 
 - [x] REPO-001: decide final language/runtime, framework, package manager, package layout, migration cost, deployment target, and test strategy for this repo.
 - [x] REPO-002: migrate the context-service bootstrap to a Python package layout with equivalent behavior and tests before broad new feature work continues.
-- [ ] CTX-001: align mode constants and unsupported-mode error shape with versioned shared contracts after `ai-assist-contracts` publishes them.
+- [x] CTX-001: align mode constants and unsupported-mode error shape with versioned shared contracts after `ai-assist-contracts` publishes them.
 - [ ] CTX-002: add a persistence adapter for `ContextConsentGrants` with tenant-aware lookup, revocation, expiry, and resource/workspace boundary queries.
-- [ ] CTX-002: add adapter-boundary checks that prevent connector calls when consent is missing, revoked, expired, or resource-mismatched.
+- [x] CTX-002: add adapter-boundary checks that prevent connector calls when consent is missing, revoked, expired, or resource-mismatched.
 - [ ] CTX-003: add context preview HTTP or internal-service contract that derives `tenantId` and `userId` from authenticated identity.
 - [ ] CTX-003: define final truncation/windowing policy for `ACTIVE_RESOURCE` context and expose deterministic metadata for omitted content.
 - [ ] CTX-004: add contract tests proving write-back proposals require connector-verified resource, revision, anchor/range, and hash metadata.
@@ -40,6 +40,14 @@ Migration status: The repo has been migrated from the temporary JavaScript ESM b
 - [x] OPS-003: add metadata-only logging adapter rules for future HTTP/internal adapters.
 - [ ] OPS-004 / INFRA-004: add deployment pipeline checks for context service config, consent store access, metadata-only logs, metrics, and dependency health.
 - [ ] Quality: raise line coverage to at least 95% after adapter boundaries are added.
+
+## Completed M4 Context-Service Slice
+
+- [x] M4 / CTX-001: align MVP context-mode constants and unsupported-mode error code/status/target with shared read-path contracts.
+- [x] M4 / CTX-002: verify consent validation for active, missing, revoked, expired, wrong-user, wrong-tenant, wrong-provider, and wrong-resource grants.
+- [x] M4 / CTX-002: add an injected read-context boundary that skips connector calls on consent failure.
+- [x] M4 / CTX-003: verify normalized `SELECTION` and `ACTIVE_RESOURCE` metadata includes provenance, trust level, revision, content hash, and truncation metadata.
+- [x] M4 / CTX-004: verify client-supplied-only context remains ineligible for write-back.
 
 ## Future Production Tasks
 

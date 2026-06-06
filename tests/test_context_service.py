@@ -11,6 +11,7 @@ from ai_assist_context_service import (
     hash_content,
     is_connector_verified_write_back_eligible,
     normalize_context,
+    read_context_with_consent,
     validate_consent_for_context_request,
     validate_context_consent_grant,
     validate_context_mode,
@@ -57,6 +58,19 @@ def context_input(**overrides):
     return value
 
 
+def context_request(**overrides):
+    value = {
+        "tenantId": "tenant-1",
+        "userId": "user-1",
+        "provider": "google_docs",
+        "contextMode": CONTEXT_MODES["ACTIVE_RESOURCE"],
+        "resourceRef": {"provider": "google_docs", "resourceId": "doc-1"},
+        "consentGrant": active_grant(),
+    }
+    value.update(overrides)
+    return value
+
+
 class ContextServiceTests(unittest.TestCase):
     def assert_context_error(self, callable_value, code=None, http_status=None, details=None):
         with self.assertRaises(Exception) as caught:
@@ -76,8 +90,16 @@ class ContextServiceTests(unittest.TestCase):
 
         self.assert_context_error(
             lambda: validate_context_mode(CONTEXT_MODES["SCREEN"]),
-            ERROR_CODES["CONTEXT_MODE_UNSUPPORTED"],
+            ERROR_CODES["UNSUPPORTED_CONTEXT_MODE"],
+            http_status=400,
         )
+        error = self.assert_context_error(
+            lambda: validate_context_mode(CONTEXT_MODES["VISIBLE_REGION"]),
+            ERROR_CODES["UNSUPPORTED_CONTEXT_MODE"],
+            http_status=400,
+        )
+        self.assertEqual(error.category, "VALIDATION")
+        self.assertEqual(error.target, "contextMode")
         self.assert_context_error(lambda: validate_context_mode("UNKNOWN_MODE"), ERROR_CODES["VALIDATION_ERROR"])
 
     def test_selection_can_be_consented_by_explicit_user_action_without_persisted_grant(self):
@@ -169,7 +191,7 @@ class ContextServiceTests(unittest.TestCase):
             details={"fields": ["request.provider", "request.resourceRef.provider"]},
         )
 
-    def test_validate_context_consent_grant_rejects_wrong_tenant_revoked_and_expired_grants(self):
+    def test_validate_context_consent_grant_rejects_scoped_status_and_expiry_failures(self):
         request = {
             "tenantId": "tenant-1",
             "userId": "user-1",
@@ -184,8 +206,35 @@ class ContextServiceTests(unittest.TestCase):
             details={"fields": ["tenantId"]},
         )
         self.assert_context_error(
+            lambda: validate_context_consent_grant(active_grant(userId="other-user"), request, {"now": NOW}),
+            ERROR_CODES["CONSENT_DENIED"],
+            details={"fields": ["userId"]},
+        )
+        self.assert_context_error(
+            lambda: validate_context_consent_grant(active_grant(provider="not_google_docs"), request, {"now": NOW}),
+            ERROR_CODES["CONSENT_DENIED"],
+            details={"fields": ["provider"]},
+        )
+        self.assert_context_error(
+            lambda: validate_context_consent_grant(
+                active_grant(resourceRef={"provider": "google_docs", "resourceId": "other-doc"}),
+                request,
+                {"now": NOW},
+            ),
+            ERROR_CODES["CONSENT_DENIED"],
+            details={"fields": ["resourceRef"]},
+        )
+        self.assert_context_error(
             lambda: validate_context_consent_grant(
                 active_grant(status=CONSENT_STATUSES["REVOKED"]),
+                request,
+                {"now": NOW},
+            ),
+            ERROR_CODES["CONSENT_DENIED"],
+        )
+        self.assert_context_error(
+            lambda: validate_context_consent_grant(
+                active_grant(status=CONSENT_STATUSES["EXPIRED"]),
                 request,
                 {"now": NOW},
             ),
@@ -245,6 +294,8 @@ class ContextServiceTests(unittest.TestCase):
         self.assertTrue(context["clientSupplied"])
         self.assertFalse(context["connectorVerified"])
         self.assertEqual(context["contentHash"], hash_content("selected by browser"))
+        self.assertFalse(context["metadata"]["truncated"])
+        self.assertEqual(context["metadata"]["contentLength"], len("selected by browser"))
         self.assertFalse(is_connector_verified_write_back_eligible(context))
         self.assert_context_error(
             lambda: assert_connector_verified_for_write_back(context),
@@ -258,6 +309,10 @@ class ContextServiceTests(unittest.TestCase):
         self.assertEqual(context["trustLevel"], "connector_verified")
         self.assertEqual(context["provenance"]["connector"], "google_docs")
         self.assertEqual(context["provenance"]["resourceVersion"], "rev-1")
+        self.assertEqual(context["resourceRevision"], "rev-1")
+        self.assertFalse(context["metadata"]["truncated"])
+        self.assertEqual(context["metadata"]["contentLength"], len("Useful document context"))
+        self.assertEqual(context["metadata"]["contentLimit"]["truncated"], False)
         self.assertTrue(context["connectorVerified"])
         self.assertTrue(is_connector_verified_write_back_eligible(context))
         self.assertTrue(assert_connector_verified_for_write_back(context))
@@ -342,6 +397,10 @@ class ContextServiceTests(unittest.TestCase):
         context = normalize_context(context_input(content="abcdef"), {"now": NOW, "maxBytes": 4})
 
         self.assertEqual(context["content"], "abcd")
+        self.assertTrue(context["metadata"]["truncated"])
+        self.assertEqual(context["metadata"]["contentLength"], 4)
+        self.assertEqual(context["metadata"]["originalContentLength"], 6)
+        self.assertEqual(context["metadata"]["truncationReason"], "MAX_CONTEXT_BYTES")
         self.assertTrue(context["metadata"]["contentLimit"]["truncated"])
         self.assertEqual(context["metadata"]["contentLimit"]["originalBytes"], 6)
         self.assertEqual(context["metadata"]["contentLimit"]["returnedBytes"], 4)
@@ -375,6 +434,70 @@ class ContextServiceTests(unittest.TestCase):
             ERROR_CODES["CONTEXT_TOO_LARGE"],
             http_status=413,
         )
+
+    def test_read_context_with_consent_skips_connector_when_consent_is_missing_or_invalid(self):
+        calls = []
+
+        def connector(_request):
+            calls.append("called")
+            return {"context": context_input(), "resourceRevision": "rev-1"}
+
+        failure_requests = [
+            context_request(consentGrant=None),
+            context_request(consentGrant=active_grant(status=CONSENT_STATUSES["REVOKED"])),
+            context_request(consentGrant=active_grant(status=CONSENT_STATUSES["EXPIRED"])),
+            context_request(consentGrant=active_grant(expiresAt="2026-05-29T11:59:00.000Z")),
+            context_request(consentGrant=active_grant(userId="other-user")),
+            context_request(consentGrant=active_grant(tenantId="other-tenant")),
+            context_request(consentGrant=active_grant(provider="not_google_docs")),
+            context_request(
+                consentGrant=active_grant(resourceRef={"provider": "google_docs", "resourceId": "other-doc"})
+            ),
+        ]
+
+        for request in failure_requests:
+            with self.subTest(request=request):
+                self.assert_context_error(
+                    lambda request=request: read_context_with_consent(request, connector, {"now": NOW}),
+                )
+
+        self.assertEqual(calls, [])
+
+    def test_read_context_with_consent_invokes_connector_after_active_matching_consent(self):
+        calls = []
+
+        def connector(request):
+            calls.append(request)
+            return {
+                "context": context_input(
+                    contextMode=CONTEXT_MODES["SELECTION"],
+                    sourceType=None,
+                    anchors={"selectionAnchor": {"startIndex": 1, "endIndex": 5}},
+                    content="Selected connector text",
+                ),
+                "resourceRevision": "rev-1",
+            }
+
+        result = read_context_with_consent(
+            context_request(
+                contextMode=CONTEXT_MODES["SELECTION"],
+                consentGrant=active_grant(contextMode=CONTEXT_MODES["SELECTION"]),
+            ),
+            connector,
+            {"now": NOW},
+        )
+
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(calls[0]["resourceRef"]["resourceId"], "doc-1")
+        self.assertEqual(calls[0]["consentGrantId"], "grant-1")
+        self.assertNotIn("consentGrant", calls[0])
+        self.assertEqual(result["consent"], {"valid": True, "grantId": "grant-1"})
+        self.assertEqual(result["resourceRevision"], "rev-1")
+        self.assertEqual(result["context"]["contextMode"], CONTEXT_MODES["SELECTION"])
+        self.assertEqual(result["context"]["sourceType"], "connector_selection")
+        self.assertEqual(result["context"]["trustLevel"], "connector_verified")
+        self.assertEqual(result["context"]["contentHash"], hash_content("Selected connector text"))
+        self.assertEqual(result["context"]["provenance"]["selectionAnchor"], {"startIndex": 1, "endIndex": 5})
 
 
 if __name__ == "__main__":

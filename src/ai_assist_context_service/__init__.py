@@ -25,6 +25,7 @@ from .provenance import (
     is_connector_verified_write_back_eligible,
     normalize_provenance,
 )
+from .read_path import read_context_with_consent
 from .redaction import REDACTION_POLICIES, apply_context_redaction
 
 __all__ = [
@@ -51,6 +52,7 @@ __all__ = [
     "is_mvp_context_mode",
     "normalize_context",
     "normalize_provenance",
+    "read_context_with_consent",
     "stable_json",
     "validate_consent_for_context_request",
     "validate_context_consent_grant",
