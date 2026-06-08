@@ -70,11 +70,36 @@ def assert_connector_verified_for_write_back(context):
                     _get_nested(context, ("anchors", "selectionAnchor"))
                     or _get_nested(context, ("anchors", "targetRange"))
                 ),
+                "hasOriginalTextHash": bool(_target_original_text_hash(context)),
                 "truncated": _get_nested(context, ("metadata", "contentLimit", "truncated")) is True,
                 "redacted": _get_nested(context, ("metadata", "redaction", "redacted")) is True,
             },
         )
     return True
+
+
+def connector_verified_write_back_target_metadata(context):
+    assert_connector_verified_for_write_back(context)
+    anchors = _get(context, "anchors") or {}
+    resource_ref = _get(context, "resourceRef") or {}
+    original_text_hash = _target_original_text_hash(context)
+
+    return {
+        "contextId": _get(context, "contextId"),
+        "provider": _get(context, "provider"),
+        "resourceRef": {
+            "provider": resource_ref.get("provider"),
+            "resourceId": resource_ref.get("resourceId"),
+        },
+        "contextMode": _get(context, "contextMode"),
+        "resourceRevision": _get(context, "resourceRevision"),
+        "targetRange": anchors.get("targetRange"),
+        "selectionAnchor": anchors.get("selectionAnchor"),
+        "originalTextHash": original_text_hash,
+        "sourceType": _get(context, "sourceType"),
+        "trustLevel": _get(context, "trustLevel"),
+        "capturedAt": _get(context, "capturedAt"),
+    }
 
 
 def is_connector_verified_write_back_eligible(context):
@@ -85,6 +110,7 @@ def is_connector_verified_write_back_eligible(context):
         and len(_get(context, "contentHash").strip()) > 0
         and bool(_get(context, "resourceRevision"))
         and bool(_get_nested(context, ("anchors", "selectionAnchor")) or _get_nested(context, ("anchors", "targetRange")))
+        and bool(_target_original_text_hash(context))
         and _get_nested(context, ("metadata", "contentLimit", "truncated")) is not True
         and _get_nested(context, ("metadata", "redaction", "redacted")) is not True
     )
@@ -113,3 +139,12 @@ def _get_nested(context, keys):
             return None
         current = current.get(key)
     return current
+
+
+def _target_original_text_hash(context):
+    anchors_hash = _get_nested(context, ("anchors", "originalTextHash"))
+    metadata_hash = _get_nested(context, ("metadata", "writeBackTarget", "originalTextHash"))
+    for value in (anchors_hash, metadata_hash):
+        if isinstance(value, str) and len(value.strip()) > 0:
+            return value
+    return None

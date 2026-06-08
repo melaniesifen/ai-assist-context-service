@@ -82,6 +82,24 @@ def validate_consent_for_context_request(request, options=None):
     return validate_context_consent_grant(request["consentGrant"], request, {"now": now})
 
 
+def validate_active_consent_for_apply_target(request, options=None):
+    """Require active persisted consent before an apply-action connector mutation."""
+    options = options or {}
+    now = _utc_datetime(options.get("now", datetime.now(timezone.utc)))
+    assert_plain_object(request, "request")
+    validate_context_request_shape(request)
+
+    if not request.get("consentGrant"):
+        raise context_error(
+            ERROR_CODES["CONSENT_REQUIRED"],
+            "an active consent grant is required before apply-action mutation",
+            http_status=403,
+            details={"contextMode": request.get("contextMode"), "provider": request.get("provider")},
+        )
+
+    return validate_context_consent_grant(request["consentGrant"], request, {"now": now})
+
+
 def validate_context_request_shape(request):
     assert_non_empty_string(request.get("tenantId"), "request.tenantId")
     assert_non_empty_string(request.get("userId"), "request.userId")

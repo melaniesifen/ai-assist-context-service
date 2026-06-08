@@ -8,10 +8,12 @@ from ai_assist_context_service import (
     REDACTION_POLICIES,
     assert_connector_verified_for_write_back,
     build_context_log_metadata,
+    connector_verified_write_back_target_metadata,
     hash_content,
     is_connector_verified_write_back_eligible,
     normalize_context,
     read_context_with_consent,
+    validate_active_consent_for_apply_target,
     validate_consent_for_context_request,
     validate_context_consent_grant,
     validate_context_mode,
@@ -51,7 +53,10 @@ def context_input(**overrides):
         "connector": "google_docs",
         "content": "Useful document context",
         "resourceRevision": "rev-1",
-        "anchors": {"targetRange": {"startIndex": 0, "endIndex": 6}},
+        "anchors": {
+            "targetRange": {"startIndex": 0, "endIndex": 6},
+            "originalTextHash": hash_content("Useful"),
+        },
         "connectorVerified": True,
     }
     value.update(overrides)
@@ -173,6 +178,53 @@ class ContextServiceTests(unittest.TestCase):
         )
 
         self.assertEqual(result, {"valid": True, "grantId": "grant-1"})
+
+    def test_apply_target_requires_active_persisted_consent_for_selection_and_active_resource(self):
+        for context_mode in (CONTEXT_MODES["SELECTION"], CONTEXT_MODES["ACTIVE_RESOURCE"]):
+            with self.subTest(context_mode=context_mode):
+                request = context_request(
+                    contextMode=context_mode,
+                    explicitUserAction=True,
+                    consentGrant=active_grant(contextMode=context_mode),
+                )
+
+                self.assertEqual(
+                    validate_active_consent_for_apply_target(request, {"now": NOW}),
+                    {"valid": True, "grantId": "grant-1"},
+                )
+
+                self.assert_context_error(
+                    lambda: validate_active_consent_for_apply_target(
+                        context_request(
+                            contextMode=context_mode,
+                            explicitUserAction=True,
+                            consentGrant=None,
+                        ),
+                        {"now": NOW},
+                    ),
+                    ERROR_CODES["CONSENT_REQUIRED"],
+                    http_status=403,
+                )
+
+    def test_apply_target_rejects_revoked_expired_wrong_resource_and_wrong_provider_consent(self):
+        failure_grants = [
+            active_grant(status=CONSENT_STATUSES["REVOKED"]),
+            active_grant(status=CONSENT_STATUSES["EXPIRED"]),
+            active_grant(expiresAt="2026-05-29T11:59:00.000Z"),
+            active_grant(resourceRef={"provider": "google_docs", "resourceId": "other-doc"}),
+            active_grant(provider="not_google_docs"),
+        ]
+
+        for grant in failure_grants:
+            with self.subTest(grant=grant):
+                self.assert_context_error(
+                    lambda grant=grant: validate_active_consent_for_apply_target(
+                        context_request(consentGrant=grant),
+                        {"now": NOW},
+                    ),
+                    ERROR_CODES["CONSENT_DENIED"],
+                    http_status=403,
+                )
 
     def test_active_resource_rejects_resource_ref_provider_drift_before_grant_coverage(self):
         self.assert_context_error(
@@ -317,6 +369,98 @@ class ContextServiceTests(unittest.TestCase):
         self.assertTrue(is_connector_verified_write_back_eligible(context))
         self.assertTrue(assert_connector_verified_for_write_back(context))
 
+    def test_connector_verified_write_back_target_metadata_excludes_raw_context_content(self):
+        context = normalize_context(
+            context_input(
+                content="private target text inside a broader active resource excerpt",
+                anchors={
+                    "targetRange": {"startIndex": 0, "endIndex": 7},
+                    "originalTextHash": hash_content("private"),
+                },
+            ),
+            {"now": NOW},
+        )
+
+        metadata = connector_verified_write_back_target_metadata(context)
+
+        self.assertEqual(
+            metadata,
+            {
+                "contextId": "ctx-1",
+                "provider": "google_docs",
+                "resourceRef": {"provider": "google_docs", "resourceId": "doc-1"},
+                "contextMode": CONTEXT_MODES["ACTIVE_RESOURCE"],
+                "resourceRevision": "rev-1",
+                "targetRange": {"startIndex": 0, "endIndex": 7},
+                "selectionAnchor": None,
+                "originalTextHash": hash_content("private"),
+                "sourceType": "connector_resource_excerpt",
+                "trustLevel": "connector_verified",
+                "capturedAt": "2026-05-29T12:00:00.000Z",
+            },
+        )
+        self.assertNotIn("content", metadata)
+        self.assertNotIn("provenance", metadata)
+
+    def test_connector_verified_write_back_target_metadata_accepts_metadata_target_hash(self):
+        context = normalize_context(
+            context_input(
+                contextMode=CONTEXT_MODES["SELECTION"],
+                content="selected connector text",
+                anchors={"selectionAnchor": {"startIndex": 2, "endIndex": 10}},
+                metadata={"writeBackTarget": {"originalTextHash": hash_content("selected")}},
+            ),
+            {"now": NOW},
+        )
+
+        metadata = connector_verified_write_back_target_metadata(context)
+
+        self.assertEqual(metadata["sourceType"], "connector_selection")
+        self.assertEqual(metadata["selectionAnchor"], {"startIndex": 2, "endIndex": 10})
+        self.assertEqual(metadata["originalTextHash"], hash_content("selected"))
+
+    def test_connector_verified_write_back_target_metadata_rejects_missing_target_hash(self):
+        context = normalize_context(
+            context_input(anchors={"targetRange": {"startIndex": 0, "endIndex": 6}}),
+            {"now": NOW},
+        )
+
+        self.assertFalse(is_connector_verified_write_back_eligible(context))
+        self.assert_context_error(
+            lambda: connector_verified_write_back_target_metadata(context),
+            ERROR_CODES["CONNECTOR_VERIFICATION_REQUIRED"],
+            http_status=422,
+            details={
+                "contextId": "ctx-1",
+                "trustLevel": "connector_verified",
+                "sourceType": "connector_resource_excerpt",
+                "hasResourceRevision": True,
+                "hasAnchorOrRange": True,
+                "hasOriginalTextHash": False,
+                "truncated": False,
+                "redacted": False,
+            },
+        )
+
+    def test_connector_verified_write_back_target_metadata_rejects_client_supplied_context(self):
+        context = normalize_context(
+            context_input(
+                contextMode=CONTEXT_MODES["SELECTION"],
+                content="client supplied selected text",
+                clientSupplied=True,
+                connectorVerified=None,
+                resourceRevision=None,
+                anchors={},
+            ),
+            {"now": NOW},
+        )
+
+        self.assert_context_error(
+            lambda: connector_verified_write_back_target_metadata(context),
+            ERROR_CODES["CONNECTOR_VERIFICATION_REQUIRED"],
+            http_status=422,
+        )
+
     def test_write_back_eligibility_requires_a_non_empty_content_hash(self):
         context = normalize_context(context_input(), {"now": NOW})
 
@@ -355,6 +499,7 @@ class ContextServiceTests(unittest.TestCase):
                 "sourceType": "connector_resource_excerpt",
                 "hasResourceRevision": True,
                 "hasAnchorOrRange": True,
+                "hasOriginalTextHash": True,
                 "truncated": False,
                 "redacted": True,
             },
@@ -414,6 +559,7 @@ class ContextServiceTests(unittest.TestCase):
                 "sourceType": "connector_resource_excerpt",
                 "hasResourceRevision": True,
                 "hasAnchorOrRange": True,
+                "hasOriginalTextHash": True,
                 "truncated": True,
                 "redacted": False,
             },

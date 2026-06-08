@@ -49,6 +49,13 @@ Migration status: The repo has been migrated from the temporary JavaScript ESM b
 - [x] M4 / CTX-003: verify normalized `SELECTION` and `ACTIVE_RESOURCE` metadata includes provenance, trust level, revision, content hash, and truncation metadata.
 - [x] M4 / CTX-004: verify client-supplied-only context remains ineligible for write-back.
 
+## Completed M7 Context-Service Slice
+
+- [x] M7-T4.3: verify apply-action `SELECTION` and `ACTIVE_RESOURCE` targets require active persisted consent, including missing, revoked, expired, wrong-provider, and wrong-resource failures before mutation.
+- [x] M7-T4.4: expose connector-verified write-back target metadata with provider, resource, revision, anchor/range, original-text hash, and no raw context content.
+- [x] M7-T4.5: verify client-supplied-only context is rejected as mutation authority.
+- [x] M7-T4.6: verify context-service metadata helpers omit raw document/selection content for apply-gate observability.
+
 ## Future Production Tasks
 
 - [ ] CTX-001: add `VISIBLE_REGION` only after client visible-region integration and future readiness gates exist.

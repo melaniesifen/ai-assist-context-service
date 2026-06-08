@@ -1,4 +1,5 @@
 from .consent import (
+    validate_active_consent_for_apply_target,
     validate_consent_for_context_request,
     validate_context_consent_grant,
     validate_context_request_shape,
@@ -22,6 +23,7 @@ from .modes import is_mvp_context_mode, validate_context_mode
 from .provenance import (
     assert_connector_verified_for_write_back,
     classify_context_source,
+    connector_verified_write_back_target_metadata,
     is_connector_verified_write_back_eligible,
     normalize_provenance,
 )
@@ -45,6 +47,7 @@ __all__ = [
     "assert_connector_verified_for_write_back",
     "build_context_log_metadata",
     "classify_context_source",
+    "connector_verified_write_back_target_metadata",
     "context_error",
     "hash_content",
     "is_connector_verified_write_back_eligible",
@@ -54,6 +57,7 @@ __all__ = [
     "normalize_provenance",
     "read_context_with_consent",
     "stable_json",
+    "validate_active_consent_for_apply_target",
     "validate_consent_for_context_request",
     "validate_context_consent_grant",
     "validate_context_mode",
