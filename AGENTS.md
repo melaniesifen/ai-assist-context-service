@@ -13,6 +13,7 @@
 - Mark context as `client_supplied` or `connector_verified`. Client-supplied content may inform the model but cannot authorize write-back.
 - Do not log raw selected text, document text, prompts, screenshots, OCR, accessibility trees, provider keys, or OAuth tokens.
 - Add tests for missing consent, expired/revoked grants, unsupported modes, oversized context, provenance fields, and write-back eligibility.
+- Keep tests split by source responsibility where practical; put reused fixtures, fake clients, and assertion helpers in `tests/common.py`.
 
 ## Commands
 
