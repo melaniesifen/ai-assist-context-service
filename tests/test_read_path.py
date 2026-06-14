@@ -1,8 +1,10 @@
 from ai_assist_context_service import (
     CONSENT_STATUSES,
     CONTEXT_MODES,
+    ERROR_CODES,
     hash_content,
     read_context_with_consent,
+    read_context_with_server_identity,
 )
 from tests.common import NOW, ContextServiceTestCase, active_grant, context_input, context_request
 
@@ -84,3 +86,47 @@ class ReadPathTests(ContextServiceTestCase):
         )
         self.assertEqual(result["context"]["contentHash"], hash_content("Selected connector text"))
         self.assertEqual(result["context"]["provenance"]["selectionAnchor"], {"startIndex": 1, "endIndex": 5})
+
+    def test_read_context_with_server_identity_derives_tenant_and_user_before_connector_call(self):
+        calls = []
+
+        def connector(request):
+            calls.append(request)
+            return {"context": context_input(), "resourceRevision": "rev-1"}
+
+        result = read_context_with_server_identity(
+            {
+                "provider": "google_docs",
+                "contextMode": CONTEXT_MODES["ACTIVE_RESOURCE"],
+                "resourceRef": {"provider": "google_docs", "resourceId": "doc-1"},
+                "consentGrant": active_grant(),
+            },
+            {"tenantId": "tenant-1", "userId": "user-1"},
+            connector,
+            {"now": NOW},
+        )
+
+        self.assertEqual(result["context"]["tenantId"], "tenant-1")
+        self.assertEqual(result["context"]["userId"], "user-1")
+        self.assertEqual(calls[0]["tenantId"], "tenant-1")
+        self.assertEqual(calls[0]["userId"], "user-1")
+
+    def test_read_context_with_server_identity_rejects_client_identity_drift_before_connector_call(self):
+        calls = []
+
+        def connector(request):
+            calls.append(request)
+            return {"context": context_input(), "resourceRevision": "rev-1"}
+
+        self.assert_context_error(
+            lambda: read_context_with_server_identity(
+                context_request(tenantId="client-tenant", userId="client-user"),
+                {"tenantId": "tenant-1", "userId": "user-1"},
+                connector,
+                {"now": NOW},
+            ),
+            ERROR_CODES["VALIDATION_ERROR"],
+            http_status=403,
+            details={"fields": ["tenantId", "userId"]},
+        )
+        self.assertEqual(calls, [])

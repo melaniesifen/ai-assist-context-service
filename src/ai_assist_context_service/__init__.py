@@ -29,6 +29,7 @@ from .provenance import (
 )
 from .read_path import read_context_with_consent
 from .redaction import REDACTION_POLICIES, apply_context_redaction
+from .runtime_boundary import context_request_with_server_identity, read_context_with_server_identity
 
 __all__ = [
     "CONSENT_STATUSES",
@@ -47,6 +48,7 @@ __all__ = [
     "assert_connector_verified_for_write_back",
     "build_context_log_metadata",
     "classify_context_source",
+    "context_request_with_server_identity",
     "connector_verified_write_back_target_metadata",
     "context_error",
     "hash_content",
@@ -56,6 +58,7 @@ __all__ = [
     "normalize_context",
     "normalize_provenance",
     "read_context_with_consent",
+    "read_context_with_server_identity",
     "stable_json",
     "validate_active_consent_for_apply_target",
     "validate_consent_for_context_request",

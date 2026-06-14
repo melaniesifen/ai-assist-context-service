@@ -63,6 +63,12 @@ Migration status: The repo has been migrated from the temporary JavaScript ESM b
 - [x] M8-T3 / CTX-005: verify consent validation runs before injected connector reads and connector handoff returns normalized context with real revision metadata.
 - [x] M8-T3 / SAFE-003 / OPS-003: verify context-service logging helpers remain metadata-only and do not include raw document or selected text.
 
+## Completed M9 Trusted-User MVP Hardening
+
+- [x] M9-T5 / CTX-002: verify consent and context-mode enforcement remain server-side before connector reads.
+- [x] M9-T5 / CTX-003: add an internal deployed-boundary helper that derives tenant/user identity from authenticated server context before consent validation.
+- [x] M9-T5 / CTX-004 / SAFE-003: verify connector-verified revision and target metadata remain the only write-back authority and raw context stays out of log metadata.
+
 ## Future Production Tasks
 
 - [ ] CTX-001: add `VISIBLE_REGION` only after client visible-region integration and future readiness gates exist.
