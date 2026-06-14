@@ -47,6 +47,11 @@ class ReadPathTests(ContextServiceTestCase):
                     sourceType=None,
                     anchors={"selectionAnchor": {"startIndex": 1, "endIndex": 5}},
                     content="Selected connector text",
+                    revisionMetadata={
+                        "provider": "google_docs",
+                        "revisionId": "rev-1",
+                        "modifiedTime": "2026-05-29T11:00:00.000Z",
+                    },
                 ),
                 "resourceRevision": "rev-1",
             }
@@ -69,5 +74,13 @@ class ReadPathTests(ContextServiceTestCase):
         self.assertEqual(result["context"]["contextMode"], CONTEXT_MODES["SELECTION"])
         self.assertEqual(result["context"]["sourceType"], "connector_selection")
         self.assertEqual(result["context"]["trustLevel"], "connector_verified")
+        self.assertEqual(
+            result["context"]["revisionMetadata"],
+            {
+                "provider": "google_docs",
+                "revisionId": "rev-1",
+                "modifiedTime": "2026-05-29T11:00:00.000Z",
+            },
+        )
         self.assertEqual(result["context"]["contentHash"], hash_content("Selected connector text"))
         self.assertEqual(result["context"]["provenance"]["selectionAnchor"], {"startIndex": 1, "endIndex": 5})

@@ -69,6 +69,7 @@ def normalize_context(input_value, options=None):
         "contentHash": hash_content(limit_result["content"]),
         "anchors": anchors,
         "resourceRevision": input_value.get("resourceRevision"),
+        "revisionMetadata": input_value.get("revisionMetadata"),
         "metadata": {
             **(input_value.get("metadata") or {}),
             "truncated": limit_metadata["truncated"],

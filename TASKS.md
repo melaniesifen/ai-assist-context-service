@@ -29,8 +29,8 @@ Migration status: The repo has been migrated from the temporary JavaScript ESM b
 - [ ] CTX-002: add a persistence adapter for `ContextConsentGrants` with tenant-aware lookup, revocation, expiry, and resource/workspace boundary queries.
 - [x] CTX-002: add adapter-boundary checks that prevent connector calls when consent is missing, revoked, expired, or resource-mismatched.
 - [ ] CTX-003: add context preview HTTP or internal-service contract that derives `tenantId` and `userId` from authenticated identity.
-- [ ] CTX-003: define final truncation/windowing policy for `ACTIVE_RESOURCE` context and expose deterministic metadata for omitted content.
-- [ ] CTX-004: add contract tests proving write-back proposals require connector-verified resource, revision, anchor/range, and hash metadata.
+- [x] CTX-003: define final truncation/windowing policy for `ACTIVE_RESOURCE` context and expose deterministic metadata for omitted content.
+- [x] CTX-004: add contract tests proving write-back proposals require connector-verified resource, revision, anchor/range, and hash metadata.
 - [ ] CTX-005: add integration contract tests with `ai-assist-google-docs-adapter` for list/read/verify handoff and normalized connector errors.
 - [ ] CTX-005 / E2E-002: add integration tests for context preview using consent validation, Google Docs adapter handoff, and connector-verified normalized context.
 - [ ] CTX-006: expand failure coverage for stale resource refs, revoked provider tokens, connector API failures, and user-facing recovery codes.
@@ -55,6 +55,13 @@ Migration status: The repo has been migrated from the temporary JavaScript ESM b
 - [x] M7-T4.4: expose connector-verified write-back target metadata with provider, resource, revision, anchor/range, original-text hash, and no raw context content.
 - [x] M7-T4.5: verify client-supplied-only context is rejected as mutation authority.
 - [x] M7-T4.6: verify context-service metadata helpers omit raw document/selection content for apply-gate observability.
+
+## Completed M8 Real Connector Context Integration
+
+- [x] M8-T3 / CTX-003: preserve connector revision metadata through context normalization for real Google Docs read handoff.
+- [x] M8-T3 / CTX-004: verify connector-verified context remains the only write-back authority and client-supplied content cannot authorize mutation.
+- [x] M8-T3 / CTX-005: verify consent validation runs before injected connector reads and connector handoff returns normalized context with real revision metadata.
+- [x] M8-T3 / SAFE-003 / OPS-003: verify context-service logging helpers remain metadata-only and do not include raw document or selected text.
 
 ## Future Production Tasks
 
