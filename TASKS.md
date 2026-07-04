@@ -27,6 +27,17 @@ Migration status: The repo has been migrated from the temporary JavaScript ESM b
 - [x] REPO-002: migrate the context-service bootstrap to a Python package layout with equivalent behavior and tests before broad new feature work continues.
 - [x] CTX-001: align mode constants and unsupported-mode error shape with versioned shared contracts after `ai-assist-contracts` publishes them.
 - [ ] CTX-002: add a persistence adapter for `ContextConsentGrants` with tenant-aware lookup, revocation, expiry, and resource/workspace boundary queries.
+- [ ] M11-T3 / CTX-002: implement Google Docs `ACTIVE_RESOURCE`
+  `ContextConsentGrants` persistence using the locked metadata-only shape:
+  `grantId`, derived `tenantId`, derived `userId`, provider, `contextMode`,
+  `resourceRef`, future-only `workspaceBoundary`, scopes, status, `grantedAt`,
+  `revokedAt`, and `expiresAt`.
+- [ ] M11-T3 / CTX-002: ensure grant lookup authorizes `grantId` or resource
+  lookup results against derived tenant/user, provider, context mode, and
+  resource ID before connector calls.
+- [ ] M11-T3 / CTX-002: remove static dogfood consent JSON from the deployed
+  normal read/apply path or keep it disabled by default as an owner-only local
+  emergency override.
 - [x] CTX-002: add adapter-boundary checks that prevent connector calls when consent is missing, revoked, expired, or resource-mismatched.
 - [ ] CTX-003: add context preview HTTP or internal-service contract that derives `tenantId` and `userId` from authenticated identity.
 - [x] CTX-003: define final truncation/windowing policy for `ACTIVE_RESOURCE` context and expose deterministic metadata for omitted content.
