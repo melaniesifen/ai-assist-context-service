@@ -69,6 +69,10 @@ Migration status: The repo has been migrated from the temporary JavaScript ESM b
 - [x] M9-T5 / CTX-003: add an internal deployed-boundary helper that derives tenant/user identity from authenticated server context before consent validation.
 - [x] M9-T5 / CTX-004 / SAFE-003: verify connector-verified revision and target metadata remain the only write-back authority and raw context stays out of log metadata.
 
+## Completed M10 Dogfood Runtime Handler
+
+- [x] M10 dogfood / CTX-001 / CTX-003: expose package-level `http_app.handle_http_request` for context-mode dogfood routes with MVP/deferred mode metadata, safe mode validation, no-store responses, and structured dependency/config errors for context preview until deployed consent and connector backing are available.
+
 ## Future Production Tasks
 
 - [ ] CTX-001: add `VISIBLE_REGION` only after client visible-region integration and future readiness gates exist.
