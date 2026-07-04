@@ -7,6 +7,7 @@ from urllib.parse import parse_qs, urlparse
 from .constants import CONTEXT_MODES, FUTURE_CONTEXT_MODES, MVP_CONTEXT_MODES
 from .errors import ContextServiceError
 from .modes import validate_context_mode
+from .read_path import read_context_with_consent
 
 
 SERVICE_NAME = "ai-assist-context-service"
@@ -36,6 +37,15 @@ def handle_http_request(
 
 
 class ContextHttpApplication:
+    def __init__(
+        self,
+        *,
+        connector_read_context: Any | None = None,
+        load_consent_grant: Any | None = None,
+    ) -> None:
+        self.connector_read_context = connector_read_context
+        self.load_consent_grant = load_consent_grant
+
     def handle(
         self,
         *,
@@ -71,6 +81,22 @@ class ContextHttpApplication:
                 payload = _json_body(body)
                 context_mode = _require_string(payload.get("contextMode"), "contextMode")
                 validate_context_mode(context_mode)
+                if self.connector_read_context is not None:
+                    request = _context_preview_request(
+                        payload,
+                        headers=headers,
+                        session_id=session_id,
+                        context_mode=context_mode,
+                    )
+                    if self.load_consent_grant is not None:
+                        consent_grant = self.load_consent_grant(request, payload.get("consentGrantId"))
+                        if consent_grant is not None:
+                            request["consentGrant"] = consent_grant
+                    result = read_context_with_consent(
+                        request,
+                        self.connector_read_context,
+                    )
+                    return _json_response(200, result)
                 return _error_response(
                     503,
                     "CONTEXT_PREVIEW_DEPENDENCY_UNAVAILABLE",
@@ -98,6 +124,14 @@ class ContextHttpApplication:
             )
         except ValueError as error:
             return _error_response(400, "VALIDATION_ERROR", str(error), category="VALIDATION")
+        except Exception:
+            return _error_response(
+                502,
+                "CONTEXT_CONNECTOR_DEPENDENCY_FAILED",
+                "Context connector dependency failed.",
+                category="DEPENDENCY",
+                retryable=False,
+            )
 
 
 def _context_modes_payload() -> list[dict[str, Any]]:
@@ -124,6 +158,43 @@ def _resource_session_route_id(path: str, suffix: str) -> str | None:
     return session_id
 
 
+def _context_preview_request(
+    payload: dict[str, Any],
+    *,
+    headers: dict[str, str],
+    session_id: str,
+    context_mode: str,
+) -> dict[str, Any]:
+    resource_ref = payload.get("resourceRef") or {
+        "provider": "google_docs",
+        "resourceId": payload.get("resourceId"),
+    }
+    if not isinstance(resource_ref, dict):
+        raise ValueError("resourceRef must be an object.")
+    tenant_id = _header(headers, "x-ai-assist-tenant-id")
+    user_id = _header(headers, "x-ai-assist-user-id")
+    if not tenant_id or not user_id:
+        raise ContextServiceError(
+            "AUTH_CONTEXT_REQUIRED",
+            "Authenticated tenant and user context are required.",
+            http_status=401,
+            category="AUTHENTICATION",
+        )
+    request = {
+        "tenantId": tenant_id,
+        "userId": user_id,
+        "sessionId": session_id,
+        "provider": payload.get("provider") or resource_ref.get("provider") or "google_docs",
+        "contextMode": context_mode,
+        "resourceRef": resource_ref,
+        "explicitUserAction": payload.get("explicitUserAction"),
+        "requestId": _header(headers, "x-request-id"),
+        "googleAccountId": payload.get("googleAccountId"),
+        "selectionRange": payload.get("selectionRange"),
+    }
+    return {key: value for key, value in request.items() if value is not None}
+
+
 def _require_bearer(headers: dict[str, str]) -> str:
     normalized = {str(key).lower(): value for key, value in headers.items()}
     authorization = normalized.get("authorization", "")
@@ -135,6 +206,14 @@ def _require_bearer(headers: dict[str, str]) -> str:
             category="AUTHENTICATION",
         )
     return authorization[len("Bearer ") :].strip()
+
+
+def _header(headers: dict[str, str], name: str) -> str | None:
+    lowered = name.lower()
+    for key, value in headers.items():
+        if str(key).lower() == lowered:
+            return value
+    return None
 
 
 def _json_body(body: bytes | str | None) -> dict[str, Any]:

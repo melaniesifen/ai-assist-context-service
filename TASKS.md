@@ -72,6 +72,7 @@ Migration status: The repo has been migrated from the temporary JavaScript ESM b
 ## Completed M10 Dogfood Runtime Handler
 
 - [x] M10 dogfood / CTX-001 / CTX-003: expose package-level `http_app.handle_http_request` for context-mode dogfood routes with MVP/deferred mode metadata, safe mode validation, no-store responses, and structured dependency/config errors for context preview until deployed consent and connector backing are available.
+- [x] M10-T3 / CTX-005 / E2E-002: allow the context-preview HTTP adapter to use an injected connector read dependency after server-derived tenant/user headers and active consent validation, preserving the safe dependency error when deployed connector backing is absent.
 
 ## Future Production Tasks
 
