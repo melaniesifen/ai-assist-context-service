@@ -9,6 +9,7 @@ This package owns pure context-domain behavior:
 - Validate MVP context modes: `SELECTION` and `ACTIVE_RESOURCE`.
 - Reject deferred modes: `VISIBLE_REGION`, `WORKSPACE`, and `SCREEN`.
 - Validate `ContextConsentGrant` shape, status, expiry, tenant/user/provider ownership, and resource coverage.
+- Persist Google Docs `ACTIVE_RESOURCE` consent grants through an injected repository, including DynamoDB table adapters for `CONSENT_GRANT_TABLE_NAME`.
 - Allow `SELECTION` through explicit user action without requiring a persisted grant in MVP.
 - Normalize context records with content hashes, provenance, trust level, anchors, resource revision, capture time, and expiry.
 - Classify context as client-supplied or connector-verified.
@@ -47,6 +48,20 @@ lives under `src/ai_assist_context_service/`, with tests under `tests/`.
 adding runtime dependencies. Add repo-local dependency/tooling manifests before
 adding libraries, package managers, formatters, coverage tools, HTTP frameworks,
 or deployment tooling.
+
+## Consent Grant Persistence
+
+`ContextConsentGrantRepository` owns metadata-only Google Docs
+`ACTIVE_RESOURCE` grant behavior. It supports create, load, revoke, and list
+active grant operations, authorizing every loaded grant against the derived
+`tenantId`, `userId`, provider, context mode, and resource ID before a connector
+can use it.
+
+`DynamoDbContextConsentGrantRepository` uses the `ContextConsentGrants` table
+shape from infra: partition key `tenantId`, sort key
+`userId#provider#contextMode#grantId`, and `ttl` derived from `expiresAt`.
+Runtime adapters should pass a DynamoDB table created from
+`CONSENT_GRANT_TABLE_NAME`.
 
 ## Future API Adapters
 

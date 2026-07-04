@@ -14,6 +14,15 @@ from .constants import (
     SOURCE_TYPES,
     TRUST_LEVELS,
 )
+from .consent_repository import (
+    DEFAULT_CONSENT_GRANT_TABLE_ENV,
+    GOOGLE_DOCS_ACTIVE_RESOURCE_SCOPES,
+    GOOGLE_DOCS_PROVIDER,
+    ContextConsentGrantRepository,
+    DynamoDbContextConsentGrantRepository,
+    InMemoryContextConsentGrantRepository,
+    build_google_docs_active_resource_grant,
+)
 from .context import normalize_context
 from .errors import ContextServiceError, ERROR_CODES, context_error, is_context_service_error
 from .hash import hash_content, stable_json
@@ -43,10 +52,17 @@ __all__ = [
     "SOURCE_TYPES",
     "TRUST_LEVELS",
     "ContextServiceError",
+    "ContextConsentGrantRepository",
+    "DEFAULT_CONSENT_GRANT_TABLE_ENV",
+    "DynamoDbContextConsentGrantRepository",
+    "GOOGLE_DOCS_ACTIVE_RESOURCE_SCOPES",
+    "GOOGLE_DOCS_PROVIDER",
+    "InMemoryContextConsentGrantRepository",
     "apply_context_byte_limit",
     "apply_context_redaction",
     "assert_connector_verified_for_write_back",
     "build_context_log_metadata",
+    "build_google_docs_active_resource_grant",
     "classify_context_source",
     "context_request_with_server_identity",
     "connector_verified_write_back_target_metadata",
