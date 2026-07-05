@@ -85,6 +85,21 @@ Migration status: The repo has been migrated from the temporary JavaScript ESM b
 - [x] M10 dogfood / CTX-001 / CTX-003: expose package-level `http_app.handle_http_request` for context-mode dogfood routes with MVP/deferred mode metadata, safe mode validation, no-store responses, and structured dependency/config errors for context preview until deployed consent and connector backing are available.
 - [x] M10-T3 / CTX-005 / E2E-002: allow the context-preview HTTP adapter to use an injected connector read dependency after server-derived tenant/user headers and active consent validation, preserving the safe dependency error when deployed connector backing is absent.
 
+## Completed M12 Context Consent Completion
+
+- [x] M12-T6.1 / CTX-002 / CTX-003: expose authenticated
+  `POST /resource-sessions/{sessionId}/context-consent` for Google Docs
+  `ACTIVE_RESOURCE` consent creation/refresh using server-derived
+  `tenantId`, `userId`, and `authSubject`.
+- [x] M12-T6.2 / SAFE-003: persist metadata-only active-resource grants through
+  the injected `ContextConsentGrantRepository`, ignoring browser-supplied
+  tenant/user fields and returning no raw document content, OAuth tokens,
+  prompts, model output, screenshots, OCR, accessibility trees, provider keys,
+  or action payloads.
+- [x] M12-T6.4: add deterministic HTTP-adapter tests for create/refresh,
+  missing Google OAuth, missing persistence dependency, server-owned identity,
+  and metadata-only consent responses.
+
 ## Future Production Tasks
 
 - [ ] CTX-001: add `VISIBLE_REGION` only after client visible-region integration and future readiness gates exist.

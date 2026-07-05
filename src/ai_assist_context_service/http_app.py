@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timedelta, timezone
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
@@ -14,6 +15,8 @@ SERVICE_NAME = "ai-assist-context-service"
 _SESSION_PREFIX = "/resource-sessions/"
 _CONTEXT_MODE_SUFFIX = "/context-mode"
 _CONTEXT_PREVIEW_SUFFIX = "/context-preview"
+_CONTEXT_CONSENT_SUFFIX = "/context-consent"
+_DEFAULT_ACTIVE_RESOURCE_CONSENT_TTL_HOURS = 8
 
 
 def handle_http_request(
@@ -42,9 +45,13 @@ class ContextHttpApplication:
         *,
         connector_read_context: Any | None = None,
         load_consent_grant: Any | None = None,
+        consent_grant_repository: Any | None = None,
+        require_google_oauth: Any | None = None,
     ) -> None:
         self.connector_read_context = connector_read_context
         self.load_consent_grant = load_consent_grant
+        self.consent_grant_repository = consent_grant_repository
+        self.require_google_oauth = require_google_oauth
 
     def handle(
         self,
@@ -105,6 +112,29 @@ class ContextHttpApplication:
                     retryable=False,
                     details={"resourceSessionId": session_id, "contextMode": context_mode},
                 )
+
+            session_id = _resource_session_route_id(path, _CONTEXT_CONSENT_SUFFIX)
+            if method == "POST" and session_id is not None:
+                payload = _json_body(body)
+                request = _context_consent_request(payload, headers=headers, session_id=session_id)
+                if self.consent_grant_repository is None:
+                    return _error_response(
+                        503,
+                        "CONTEXT_CONSENT_DEPENDENCY_UNAVAILABLE",
+                        "Context consent requires deployed consent persistence.",
+                        category="DEPENDENCY",
+                        retryable=False,
+                        details={"resourceSessionId": session_id, "contextMode": request["contextMode"]},
+                    )
+                if self.require_google_oauth is not None:
+                    self.require_google_oauth(request)
+                existing = self.consent_grant_repository.load_grant_for_request(request, payload.get("consentGrantId"))
+                if existing is not None:
+                    return _json_response(200, _consent_response(existing, refreshed=True))
+                created = self.consent_grant_repository.create_google_docs_active_resource_grant(
+                    _grant_from_request(request, payload)
+                )
+                return _json_response(201, _consent_response(created, refreshed=False))
 
             return _error_response(
                 404,
@@ -193,6 +223,82 @@ def _context_preview_request(
         "selectionRange": payload.get("selectionRange"),
     }
     return {key: value for key, value in request.items() if value is not None}
+
+
+def _context_consent_request(
+    payload: dict[str, Any],
+    *,
+    headers: dict[str, str],
+    session_id: str,
+) -> dict[str, Any]:
+    resource_ref = payload.get("resourceRef") or {
+        "provider": "google_docs",
+        "resourceId": payload.get("resourceId"),
+    }
+    if not isinstance(resource_ref, dict):
+        raise ValueError("resourceRef must be an object.")
+    tenant_id = _header(headers, "x-ai-assist-tenant-id")
+    user_id = _header(headers, "x-ai-assist-user-id")
+    auth_subject = _header(headers, "x-ai-assist-auth-subject")
+    if not tenant_id or not user_id or not auth_subject:
+        raise ContextServiceError(
+            "AUTH_CONTEXT_REQUIRED",
+            "Authenticated tenant, user, and subject context are required.",
+            http_status=401,
+            category="AUTHENTICATION",
+        )
+    request = {
+        "tenantId": tenant_id,
+        "userId": user_id,
+        "authSubject": auth_subject,
+        "sessionId": session_id,
+        "provider": "google_docs",
+        "contextMode": CONTEXT_MODES["ACTIVE_RESOURCE"],
+        "resourceRef": {
+            **resource_ref,
+            "provider": resource_ref.get("provider") or "google_docs",
+        },
+        "requestId": _header(headers, "x-request-id"),
+        "googleAccountId": payload.get("googleAccountId"),
+    }
+    return {key: value for key, value in request.items() if value is not None}
+
+
+def _grant_from_request(request: dict[str, Any], payload: dict[str, Any]) -> dict[str, Any]:
+    now = datetime.now(timezone.utc)
+    expires_at = payload.get("expiresAt") or _isoformat_z(now + timedelta(hours=_DEFAULT_ACTIVE_RESOURCE_CONSENT_TTL_HOURS))
+    return {
+        "tenantId": request["tenantId"],
+        "userId": request["userId"],
+        "provider": request["provider"],
+        "contextMode": request["contextMode"],
+        "resourceRef": request["resourceRef"],
+        "scopes": payload.get("scopes") or ["docs.read"],
+        "expiresAt": expires_at,
+    }
+
+
+def _consent_response(grant: dict[str, Any], *, refreshed: bool) -> dict[str, Any]:
+    return {
+        "consentGrant": {
+            "grantId": grant["grantId"],
+            "tenantId": grant["tenantId"],
+            "userId": grant["userId"],
+            "provider": grant["provider"],
+            "contextMode": grant["contextMode"],
+            "resourceRef": grant["resourceRef"],
+            "scopes": grant["scopes"],
+            "status": grant["status"],
+            "grantedAt": grant["grantedAt"],
+            "revokedAt": grant.get("revokedAt"),
+            "expiresAt": grant.get("expiresAt"),
+        },
+        "refreshed": refreshed,
+    }
+
+
+def _isoformat_z(value: datetime) -> str:
+    return value.astimezone(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
 
 def _require_bearer(headers: dict[str, str]) -> str:

@@ -1,7 +1,12 @@
 import json
 import unittest
 
-from ai_assist_context_service import CONSENT_STATUSES, CONTEXT_MODES
+from ai_assist_context_service import (
+    CONSENT_STATUSES,
+    CONTEXT_MODES,
+    ContextServiceError,
+    InMemoryContextConsentGrantRepository,
+)
 from ai_assist_context_service.http_app import ContextHttpApplication, handle_http_request
 
 
@@ -9,6 +14,7 @@ AUTH_HEADERS = {
     "Authorization": "Bearer test-session",
     "X-Ai-Assist-Tenant-Id": "tenant-1",
     "X-Ai-Assist-User-Id": "user-1",
+    "X-Ai-Assist-Auth-Subject": "auth-subject-1",
 }
 
 
@@ -228,6 +234,96 @@ class ContextHttpAppTests(unittest.TestCase):
         self.assertEqual(response["status"], 401)
         self.assertEqual(response_json(response)["error"]["code"], "AUTH_CONTEXT_REQUIRED")
         self.assertEqual(calls, [])
+
+    def test_context_consent_create_uses_server_identity_and_ignores_body_identity(self):
+        repository = InMemoryContextConsentGrantRepository()
+        oauth_checks = []
+
+        def require_google_oauth(request):
+            oauth_checks.append(request)
+
+        app = ContextHttpApplication(consent_grant_repository=repository, require_google_oauth=require_google_oauth)
+        response = app.handle(
+            method="POST",
+            path="/resource-sessions/session-1/context-consent",
+            headers=AUTH_HEADERS,
+            query={},
+            body=json.dumps(
+                {
+                    "tenantId": "attacker-tenant",
+                    "userId": "attacker-user",
+                    "resourceId": "doc-1",
+                    "expiresAt": "2026-07-05T13:00:00.000Z",
+                }
+            ).encode("utf-8"),
+        )
+        payload = response_json(response)
+
+        self.assertEqual(response["status"], 201)
+        self.assertEqual(payload["consentGrant"]["tenantId"], "tenant-1")
+        self.assertEqual(payload["consentGrant"]["userId"], "user-1")
+        self.assertEqual(payload["consentGrant"]["resourceRef"]["resourceId"], "doc-1")
+        self.assertEqual(payload["consentGrant"]["contextMode"], CONTEXT_MODES["ACTIVE_RESOURCE"])
+        self.assertEqual(payload["consentGrant"]["scopes"], ["docs.read"])
+        self.assertFalse(payload["refreshed"])
+        self.assertEqual(oauth_checks[0]["authSubject"], "auth-subject-1")
+        self.assertNotIn("content", response["body"].decode("utf-8"))
+        self.assertNotIn("accessToken", response["body"].decode("utf-8"))
+
+    def test_context_consent_returns_existing_active_grant_for_matching_resource(self):
+        repository = InMemoryContextConsentGrantRepository([active_grant()])
+        app = ContextHttpApplication(consent_grant_repository=repository)
+
+        response = app.handle(
+            method="POST",
+            path="/resource-sessions/session-1/context-consent",
+            headers=AUTH_HEADERS,
+            query={},
+            body=json.dumps({"resourceId": "doc-1"}).encode("utf-8"),
+        )
+        payload = response_json(response)
+
+        self.assertEqual(response["status"], 200)
+        self.assertEqual(payload["consentGrant"]["grantId"], "grant-1")
+        self.assertTrue(payload["refreshed"])
+
+    def test_context_consent_fails_closed_when_google_oauth_is_missing(self):
+        repository = InMemoryContextConsentGrantRepository()
+
+        def require_google_oauth(_request):
+            raise ContextServiceError(
+                "GOOGLE_OAUTH_REQUIRED",
+                "Connect Google before granting document context.",
+                http_status=403,
+                category="AUTHORIZATION",
+            )
+
+        app = ContextHttpApplication(consent_grant_repository=repository, require_google_oauth=require_google_oauth)
+        response = app.handle(
+            method="POST",
+            path="/resource-sessions/session-1/context-consent",
+            headers=AUTH_HEADERS,
+            query={},
+            body=json.dumps({"resourceId": "doc-1"}).encode("utf-8"),
+        )
+        payload = response_json(response)
+
+        self.assertEqual(response["status"], 403)
+        self.assertEqual(payload["error"]["code"], "GOOGLE_OAUTH_REQUIRED")
+
+    def test_context_consent_requires_persistence_dependency(self):
+        app = ContextHttpApplication()
+
+        response = app.handle(
+            method="POST",
+            path="/resource-sessions/session-1/context-consent",
+            headers=AUTH_HEADERS,
+            query={},
+            body=json.dumps({"resourceId": "doc-1"}).encode("utf-8"),
+        )
+
+        self.assertEqual(response["status"], 503)
+        self.assertEqual(response_json(response)["error"]["code"], "CONTEXT_CONSENT_DEPENDENCY_UNAVAILABLE")
 
 
 if __name__ == "__main__":
